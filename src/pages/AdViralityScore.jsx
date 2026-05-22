@@ -319,7 +319,7 @@ export default function AdViralityScore() {
                   <div style={{ fontWeight: 600, color: '#4f46e5' }}>{file.name}</div>
                   <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
                     {(file.size / 1024 / 1024).toFixed(2)} MB
-                    {file.type.startsWith('video/') ? ' → first frame extracted' : file.size > 1024*1024 ? ' → will compress' : ''}
+                    {file.type.startsWith('video/') ? ' → 6-frame storyboard' : file.size > 1024*1024 ? ' → will compress' : ''}
                     {' · Click to change'}
                   </div>
                 </div>
