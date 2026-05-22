@@ -192,7 +192,6 @@ async function fetchScore({ file, url, type, inputMode }) {
 }
 
 export default function AdViralityScore() {
-  const [mode, setMode] = useState('ad')
   const [file, setFile] = useState(null)
   const [url, setUrl] = useState('')
   const [inputMode, setInputMode] = useState('file')
@@ -205,7 +204,7 @@ export default function AdViralityScore() {
     setScores(null)
     setLoading(true)
     try {
-      const result = await fetchScore({ file, url, type: mode, inputMode })
+      const result = await fetchScore({ file, url, type: 'video', inputMode })
       setScores(result)
     } catch (e) {
       setError('Scoring failed. Please try again.')
@@ -227,7 +226,7 @@ export default function AdViralityScore() {
             Virality Score
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15 }}>
-            Predict how viral your ad or video will go — powered by TRIBE v2
+            Predict how viral your video will go — powered by TRIBE v2
           </p>
           {!API_URL && (
             <span style={{
@@ -243,25 +242,6 @@ export default function AdViralityScore() {
         <div style={{
           background: '#fff', borderRadius: 20, padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
         }}>
-
-          {/* Mode tabs */}
-          <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: 12, padding: 4, marginBottom: 24 }}>
-            {[{ key: 'ad', label: '📢 Ad Creative' }, { key: 'video', label: '🎬 Video' }].map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => { setMode(key); setScores(null) }}
-                style={{
-                  flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 600,
-                  fontSize: 14, transition: 'all 0.2s',
-                  background: mode === key ? '#fff' : 'transparent',
-                  color: mode === key ? '#4f46e5' : '#6b7280',
-                  boxShadow: mode === key ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
 
           {/* Input mode */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
