@@ -37,8 +37,8 @@ Score rubric:
 - shareability: will people send this to friends?
 - trend: does it align with current platform trends?"""
 
-GROK_MODEL = "grok-2-vision-latest"
-GROK_BASE_URL = "https://api.x.ai/v1"
+GROK_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+GROK_BASE_URL = "https://api.groq.com/openai/v1"
 
 
 def score_content(file_bytes: bytes, content_type: Optional[str], media_type: str) -> dict:
@@ -122,9 +122,9 @@ def _extract_first_frame(video_bytes: bytes) -> bytes:
 
 def _call_grok(image_bytes: bytes, image_mime: str) -> dict:
     """Send the image to Grok and parse the JSON response."""
-    api_key = os.environ.get("XAI_API_KEY")
+    api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
-        raise RuntimeError("XAI_API_KEY not set")
+        raise RuntimeError("GROQ_API_KEY not set")
 
     from openai import OpenAI  # type: ignore
 
