@@ -2,33 +2,77 @@ import { useState } from 'react'
 
 const API_URL = import.meta.env.VITE_VIRALITY_API_URL
 
-// Compress + resize image to stay under Vercel's 4.5 MB serverless body limit.
-// Max dimension 1280px, JPEG quality 0.82 — keeps most images under 400 KB.
-async function compressImage(file, maxPx = 1280, quality = 0.82) {
-  if (!file.type.startsWith('image/')) return file   // videos: pass through
+const MAX_PX = 1280
+const JPEG_Q = 0.82
+
+// Resize + compress a canvas to a JPEG File
+function canvasToFile(canvas, name, quality = JPEG_Q) {
   return new Promise((resolve) => {
+    canvas.toBlob(
+      (blob) => resolve(new File([blob], name, { type: 'image/jpeg' })),
+      'image/jpeg',
+      quality,
+    )
+  })
+}
+
+function resizeCanvas(source, maxPx = MAX_PX) {
+  let w = source.videoWidth ?? source.naturalWidth ?? source.width
+  let h = source.videoHeight ?? source.naturalHeight ?? source.height
+  if (w > maxPx || h > maxPx) {
+    const r = Math.min(maxPx / w, maxPx / h)
+    w = Math.round(w * r)
+    h = Math.round(h * r)
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  canvas.getContext('2d').drawImage(source, 0, 0, w, h)
+  return canvas
+}
+
+// For images: resize + compress
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
-    img.onload = () => {
+    img.onload = async () => {
       URL.revokeObjectURL(url)
-      let { width, height } = img
-      if (width > maxPx || height > maxPx) {
-        const ratio = Math.min(maxPx / width, maxPx / height)
-        width  = Math.round(width  * ratio)
-        height = Math.round(height * ratio)
-      }
-      const canvas = document.createElement('canvas')
-      canvas.width  = width
-      canvas.height = height
-      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
-      canvas.toBlob(
-        (blob) => resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })),
-        'image/jpeg',
-        quality,
-      )
+      const canvas = resizeCanvas(img)
+      resolve(await canvasToFile(canvas, file.name.replace(/\.\w+$/, '.jpg')))
     }
+    img.onerror = reject
     img.src = url
   })
+}
+
+// For videos: extract frame at 0.5 s, resize + compress to JPEG
+function extractVideoFrame(file) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video')
+    video.muted = true
+    video.playsInline = true
+    const url = URL.createObjectURL(file)
+
+    video.onloadedmetadata = () => {
+      // Seek to 0.5 s or halfway if shorter
+      video.currentTime = Math.min(0.5, video.duration / 2)
+    }
+    video.onseeked = async () => {
+      URL.revokeObjectURL(url)
+      const canvas = resizeCanvas(video)
+      resolve(await canvasToFile(canvas, 'frame.jpg'))
+    }
+    video.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Video load failed')) }
+    video.src = url
+  })
+}
+
+// Main entry: handles both image and video files
+async function prepareFile(file) {
+  if (file.type.startsWith('video/')) return extractVideoFrame(file)
+  if (file.type.startsWith('image/')) return compressImage(file)
+  return file
 }
 
 const MOCK_SCORES = {
@@ -138,7 +182,7 @@ async function fetchScore({ file, url, type, inputMode }) {
     if (!res.ok) throw new Error('Backend error')
     return res.json()
   }
-  const compressed = await compressImage(file)
+  const compressed = await prepareFile(file)
   const form = new FormData()
   form.append('file', compressed)
   form.append('type', type)
@@ -254,7 +298,9 @@ export default function AdViralityScore() {
                   <div style={{ fontSize: 28, marginBottom: 6 }}>✅</div>
                   <div style={{ fontWeight: 600, color: '#4f46e5' }}>{file.name}</div>
                   <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-                    {(file.size / 1024 / 1024).toFixed(2)} MB{file.size > 1024*1024 ? ' → will compress before upload' : ''} · Click to change
+                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                    {file.type.startsWith('video/') ? ' → first frame extracted' : file.size > 1024*1024 ? ' → will compress' : ''}
+                    {' · Click to change'}
                   </div>
                 </div>
               ) : (
@@ -262,7 +308,7 @@ export default function AdViralityScore() {
                   <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
                   <div style={{ fontWeight: 600, color: '#374151' }}>Drop file here or click to browse</div>
                   <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-                    Images (JPG, PNG, GIF) or Videos (MP4, MOV, AVI)
+                    Images (JPG, PNG) or Videos (MP4, MOV, AVI) · Any size
                   </div>
                 </div>
               )}
