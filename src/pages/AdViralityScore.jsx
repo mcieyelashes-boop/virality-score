@@ -46,22 +46,62 @@ function compressImage(file) {
   })
 }
 
-// For videos: extract frame at 0.5 s, resize + compress to JPEG
-function extractVideoFrame(file) {
+// Seek a video element to a timestamp, returns Promise<void>
+function seekTo(video, time) {
+  return new Promise((resolve) => {
+    video.onseeked = () => resolve()
+    video.currentTime = time
+  })
+}
+
+// Extract N frames evenly across the full video duration,
+// stitch into a storyboard grid, return as a single JPEG File.
+// Grid layout: 3 columns × ceil(N/3) rows.
+async function extractVideoStoryboard(file, frameCount = 6) {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video')
     video.muted = true
     video.playsInline = true
     const url = URL.createObjectURL(file)
 
-    video.onloadedmetadata = () => {
-      // Seek to 0.5 s or halfway if shorter
-      video.currentTime = Math.min(0.5, video.duration / 2)
-    }
-    video.onseeked = async () => {
-      URL.revokeObjectURL(url)
-      const canvas = resizeCanvas(video)
-      resolve(await canvasToFile(canvas, 'frame.jpg'))
+    video.onloadedmetadata = async () => {
+      try {
+        const duration = video.duration
+        const cols = 3
+        const rows = Math.ceil(frameCount / cols)
+        const thumbW = 320
+        const thumbH = Math.round(thumbW * (video.videoHeight / video.videoWidth)) || 180
+
+        const grid = document.createElement('canvas')
+        grid.width  = cols * thumbW
+        grid.height = rows * thumbH
+        const ctx = grid.getContext('2d')
+        ctx.fillStyle = '#000'
+        ctx.fillRect(0, 0, grid.width, grid.height)
+
+        for (let i = 0; i < frameCount; i++) {
+          // Spread frames: 2% → 98% of duration so we catch the full arc
+          const t = duration * (0.02 + (0.96 * i) / (frameCount - 1))
+          await seekTo(video, t)
+          const col = i % cols
+          const row = Math.floor(i / cols)
+          ctx.drawImage(video, col * thumbW, row * thumbH, thumbW, thumbH)
+
+          // Timestamp label
+          const label = `${Math.round(t)}s`
+          ctx.fillStyle = 'rgba(0,0,0,0.55)'
+          ctx.fillRect(col * thumbW + 4, row * thumbH + 4, 36, 16)
+          ctx.fillStyle = '#fff'
+          ctx.font = '11px sans-serif'
+          ctx.fillText(label, col * thumbW + 7, row * thumbH + 15)
+        }
+
+        URL.revokeObjectURL(url)
+        resolve(await canvasToFile(grid, 'storyboard.jpg', 0.88))
+      } catch (e) {
+        URL.revokeObjectURL(url)
+        reject(e)
+      }
     }
     video.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Video load failed')) }
     video.src = url
@@ -70,7 +110,7 @@ function extractVideoFrame(file) {
 
 // Main entry: handles both image and video files
 async function prepareFile(file) {
-  if (file.type.startsWith('video/')) return extractVideoFrame(file)
+  if (file.type.startsWith('video/')) return extractVideoStoryboard(file)
   if (file.type.startsWith('image/')) return compressImage(file)
   return file
 }
