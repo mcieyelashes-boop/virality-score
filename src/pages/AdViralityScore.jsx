@@ -2,6 +2,35 @@ import { useState } from 'react'
 
 const API_URL = import.meta.env.VITE_VIRALITY_API_URL
 
+// Compress + resize image to stay under Vercel's 4.5 MB serverless body limit.
+// Max dimension 1280px, JPEG quality 0.82 — keeps most images under 400 KB.
+async function compressImage(file, maxPx = 1280, quality = 0.82) {
+  if (!file.type.startsWith('image/')) return file   // videos: pass through
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width > maxPx || height > maxPx) {
+        const ratio = Math.min(maxPx / width, maxPx / height)
+        width  = Math.round(width  * ratio)
+        height = Math.round(height * ratio)
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width  = width
+      canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        (blob) => resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })),
+        'image/jpeg',
+        quality,
+      )
+    }
+    img.src = url
+  })
+}
+
 const MOCK_SCORES = {
   overall: 78,
   emotion: 82,
@@ -109,8 +138,9 @@ async function fetchScore({ file, url, type, inputMode }) {
     if (!res.ok) throw new Error('Backend error')
     return res.json()
   }
+  const compressed = await compressImage(file)
   const form = new FormData()
-  form.append('file', file)
+  form.append('file', compressed)
   form.append('type', type)
   const res = await fetch(`${API_URL}/score`, { method: 'POST', body: form })
   if (!res.ok) throw new Error('Backend error')
@@ -224,7 +254,7 @@ export default function AdViralityScore() {
                   <div style={{ fontSize: 28, marginBottom: 6 }}>✅</div>
                   <div style={{ fontWeight: 600, color: '#4f46e5' }}>{file.name}</div>
                   <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-                    {(file.size / 1024 / 1024).toFixed(2)} MB · Click to change
+                    {(file.size / 1024 / 1024).toFixed(2)} MB{file.size > 1024*1024 ? ' → will compress before upload' : ''} · Click to change
                   </div>
                 </div>
               ) : (
