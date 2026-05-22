@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from typing import Optional
 import httpx
 
 from tribe_scorer import score_content
@@ -31,6 +32,7 @@ def health():
 async def score(
     file: UploadFile = File(...),
     type: str = Form("ad"),
+    audio: Optional[UploadFile] = File(None),
 ):
     if type not in ("ad", "video"):
         raise HTTPException(400, "type must be 'ad' or 'video'")
@@ -39,8 +41,14 @@ async def score(
     if len(contents) > MAX_BYTES:
         raise HTTPException(413, "File too large (max 100 MB)")
 
+    audio_bytes: Optional[bytes] = None
+    if audio is not None:
+        audio_bytes = await audio.read()
+        if len(audio_bytes) > MAX_BYTES:
+            audio_bytes = None  # too large — skip audio, still score visually
+
     try:
-        return score_content(contents, file.content_type, type)
+        return score_content(contents, file.content_type, type, audio_bytes=audio_bytes)
     except Exception as exc:  # pragma: no cover - defensive
         raise HTTPException(500, f"Scoring failed: {exc}") from exc
 
