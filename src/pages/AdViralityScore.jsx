@@ -78,7 +78,7 @@ function BarScore({ label, score }) {
   )
 }
 
-async function fetchScore(file, type) {
+async function fetchScore({ file, url, type, inputMode }) {
   if (!API_URL) {
     await new Promise(r => setTimeout(r, 1200))
     return {
@@ -89,7 +89,25 @@ async function fetchScore(file, type) {
       retention: Math.floor(55 + Math.random() * 40),
       shareability: Math.floor(60 + Math.random() * 35),
       trend: Math.floor(45 + Math.random() * 50),
+      feedback: {
+        summary: "Mock analysis: strong visual but hook could be sharper.",
+        strengths: ["Clear product focus", "Good color contrast"],
+        improvements: [
+          "Strengthen the opening 3 seconds",
+          "Add captions for silent viewers",
+          "Test a curiosity-gap headline",
+        ],
+      },
     }
+  }
+  if (inputMode === 'url') {
+    const res = await fetch(`${API_URL}/score-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, type }),
+    })
+    if (!res.ok) throw new Error('Backend error')
+    return res.json()
   }
   const form = new FormData()
   form.append('file', file)
@@ -113,7 +131,7 @@ export default function AdViralityScore() {
     setScores(null)
     setLoading(true)
     try {
-      const result = await fetchScore(file, mode)
+      const result = await fetchScore({ file, url, type: mode, inputMode })
       setScores(result)
     } catch (e) {
       setError('Scoring failed. Please try again.')
@@ -269,9 +287,11 @@ export default function AdViralityScore() {
             <div style={{
               display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'center', marginBottom: 28,
             }}>
-              {Object.entries(scores).map(([key, val]) => (
-                <ScoreRing key={key} score={val} label={SCORE_LABELS[key] ?? key} />
-              ))}
+              {Object.entries(scores)
+                .filter(([, val]) => typeof val === 'number')
+                .map(([key, val]) => (
+                  <ScoreRing key={key} score={val} label={SCORE_LABELS[key] ?? key} />
+                ))}
             </div>
 
             {/* Bar breakdown */}
@@ -279,9 +299,11 @@ export default function AdViralityScore() {
               <h3 style={{ fontSize: 14, fontWeight: 600, color: '#6b7280', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>
                 Breakdown
               </h3>
-              {Object.entries(scores).filter(([k]) => k !== 'overall').map(([key, val]) => (
-                <BarScore key={key} label={SCORE_LABELS[key] ?? key} score={val} />
-              ))}
+              {Object.entries(scores)
+                .filter(([k, val]) => k !== 'overall' && typeof val === 'number')
+                .map(([key, val]) => (
+                  <BarScore key={key} label={SCORE_LABELS[key] ?? key} score={val} />
+                ))}
             </div>
 
             {/* Verdict */}
@@ -301,6 +323,82 @@ export default function AdViralityScore() {
                   : 'Low viral likelihood. Revisit the concept, hook, and audience targeting.'}
               </div>
             </div>
+
+            {/* AI Feedback */}
+            {scores.feedback && (
+              <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Summary */}
+                {scores.feedback.summary && (
+                  <div style={{
+                    background: '#fff', borderRadius: 20, padding: '18px 20px',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.06)', border: '1px solid #eef2ff',
+                  }}>
+                    <h3 style={{
+                      fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 8,
+                      textTransform: 'uppercase', letterSpacing: 1,
+                    }}>
+                      AI Summary
+                    </h3>
+                    <p style={{ fontSize: 14, color: '#1f2937', lineHeight: 1.55, margin: 0 }}>
+                      {scores.feedback.summary}
+                    </p>
+                  </div>
+                )}
+
+                {/* Strengths */}
+                {scores.feedback.strengths?.length > 0 && (
+                  <div style={{
+                    background: '#f0fdf4', borderRadius: 20, padding: '18px 20px',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.06)', borderLeft: '4px solid #22c55e',
+                  }}>
+                    <h3 style={{
+                      fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 10,
+                      textTransform: 'uppercase', letterSpacing: 1,
+                    }}>
+                      Strengths
+                    </h3>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {scores.feedback.strengths.map((item, i) => (
+                        <li key={i} style={{ fontSize: 14, color: '#14532d', lineHeight: 1.5, display: 'flex', gap: 8 }}>
+                          <span aria-hidden="true">✅</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Improvements */}
+                {scores.feedback.improvements?.length > 0 && (
+                  <div style={{
+                    background: '#fffbeb', borderRadius: 20, padding: '18px 20px',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.06)', borderLeft: '4px solid #f59e0b',
+                  }}>
+                    <h3 style={{
+                      fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 10,
+                      textTransform: 'uppercase', letterSpacing: 1,
+                    }}>
+                      Improvements
+                    </h3>
+                    <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {scores.feedback.improvements.map((item, i) => (
+                        <li key={i} style={{ fontSize: 14, color: '#78350f', lineHeight: 1.5, display: 'flex', gap: 10 }}>
+                          <span style={{
+                            flexShrink: 0, width: 22, height: 22, borderRadius: 999,
+                            background: '#f59e0b', color: '#fff', fontSize: 12, fontWeight: 700,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            {i + 1}
+                          </span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
