@@ -22,12 +22,12 @@ class ScoreUrlRequest(BaseModel):
     type: str = Field("ad")
 
 
-@app.get("/health")
+@app.get("/api/health")
 def health():
     return {"status": "ok"}
 
 
-@app.post("/score")
+@app.post("/api/score")
 async def score(
     file: UploadFile = File(...),
     type: str = Form("ad"),
@@ -45,7 +45,7 @@ async def score(
         raise HTTPException(500, f"Scoring failed: {exc}") from exc
 
 
-@app.post("/score-url")
+@app.post("/api/score-url")
 async def score_url(payload: ScoreUrlRequest):
     if payload.type not in ("ad", "video"):
         raise HTTPException(400, "type must be 'ad' or 'video'")
