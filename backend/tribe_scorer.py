@@ -53,12 +53,33 @@ GROK_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 GROK_BASE_URL = "https://api.groq.com/openai/v1"
 WHISPER_MODEL = "whisper-large-v3-turbo"
 
+# Platform-specific scoring context injected at the start of the user message.
+PLATFORM_CONTEXT = {
+    "tiktok": (
+        "Platform: TikTok. Prioritize: first 1-2 second hook, trending audio/sounds, "
+        "fast cuts, relatable humor, duet/stitch potential. Audience: 16-30."
+    ),
+    "reels": (
+        "Platform: Instagram Reels. Prioritize: aesthetic quality, text overlays, "
+        "saves/shares over likes, aspirational content, smooth transitions. Audience: 18-35."
+    ),
+    "shorts": (
+        "Platform: YouTube Shorts. Prioritize: curiosity gap in title/hook, watch-through "
+        "rate, subscribe prompt, educational or entertaining value. Audience: 18-40."
+    ),
+    "linkedin": (
+        "Platform: LinkedIn. Prioritize: professional insight, storytelling, thought "
+        "leadership, comment-bait questions, industry relevance. Audience: 25-45 professionals."
+    ),
+}
+
 
 def score_content(
     file_bytes: bytes,
     content_type: Optional[str],
     media_type: str,
     audio_bytes: Optional[bytes] = None,
+    platform: str = "tiktok",
 ) -> dict:
     """
     Returns virality scores (0-100) + qualitative feedback.
@@ -68,6 +89,7 @@ def score_content(
         content_type: MIME type hint
         media_type:   "video" or "ad"
         audio_bytes:  optional 16 kHz mono WAV for transcription
+        platform:     "tiktok" | "reels" | "shorts" | "linkedin"
     """
     try:
         image_bytes, image_mime = _prepare_image(file_bytes, content_type, media_type)
@@ -77,7 +99,7 @@ def score_content(
         if audio_bytes:
             transcript, pacing = _transcribe_audio(audio_bytes)
 
-        result = _call_grok(image_bytes, image_mime, transcript, pacing)
+        result = _call_grok(image_bytes, image_mime, transcript, pacing, platform)
         out = _validate_result(result)
 
         # Attach transcript so frontend can display it
@@ -187,6 +209,7 @@ def _call_grok(
     image_mime: str,
     transcript: Optional[str] = None,
     pacing: Optional[dict] = None,
+    platform: str = "tiktok",
 ) -> dict:
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
@@ -197,6 +220,8 @@ def _call_grok(
 
     b64 = base64.b64encode(image_bytes).decode("ascii")
     data_url = f"data:{image_mime};base64,{b64}"
+
+    platform_line = PLATFORM_CONTEXT.get(platform, PLATFORM_CONTEXT["tiktok"])
 
     if transcript:
         pacing_line = ""
@@ -210,12 +235,16 @@ def _call_grok(
                 f"over {pacing['duration_analyzed']}s analyzed. {hook_note}."
             )
         user_text = (
+            f"{platform_line}\n\n"
             f"VIDEO TRANSCRIPT:\n{transcript}{pacing_line}\n\n"
             "Score this creative using BOTH the visual storyboard AND the transcript. "
             "Return ONLY the JSON object."
         )
     else:
-        user_text = "Score this creative now. Return ONLY the JSON object."
+        user_text = (
+            f"{platform_line}\n\n"
+            "Score this creative now. Return ONLY the JSON object."
+        )
 
     response = client.chat.completions.create(
         model=GROK_MODEL,

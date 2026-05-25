@@ -1,6 +1,68 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const API_URL = import.meta.env.VITE_VIRALITY_API_URL
+
+// ─── history helpers (localStorage) ──────────────────────────────────────────
+
+const HISTORY_KEY = 'virality_history'
+const HISTORY_MAX = 10
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveToHistory(filename, scores) {
+  if (!scores || typeof scores.overall !== 'number') return loadHistory()
+  const numericScores = Object.fromEntries(
+    Object.entries(scores).filter(([, v]) => typeof v === 'number'),
+  )
+  const entry = {
+    id:
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    filename: filename || 'Untitled',
+    timestamp: Date.now(),
+    scores: numericScores,
+    feedback: scores.feedback ?? null,
+    transcript: scores.transcript ?? null,
+  }
+  const next = [entry, ...loadHistory()].slice(0, HISTORY_MAX)
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
+  } catch {
+    // storage full or unavailable — ignore
+  }
+  return next
+}
+
+function clearHistory() {
+  try {
+    localStorage.removeItem(HISTORY_KEY)
+  } catch {
+    // ignore
+  }
+  return []
+}
+
+function formatHistoryDate(ts) {
+  const d = new Date(ts)
+  const today = new Date()
+  const sameDay =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (sameDay) return `Today, ${time}`
+  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${time}`
+}
 
 const MAX_PX = 1280
 const JPEG_Q = 0.82
@@ -186,7 +248,14 @@ function scoreColor(score) {
   return '#ef4444'
 }
 
-async function fetchScore({ file, url, inputMode, setStatus }) {
+const PLATFORMS = [
+  { key: 'tiktok',   label: 'TikTok',           icon: '🎵' },
+  { key: 'reels',    label: 'Instagram Reels',  icon: '📸' },
+  { key: 'shorts',   label: 'YouTube Shorts',   icon: '▶️' },
+  { key: 'linkedin', label: 'LinkedIn',         icon: '💼' },
+]
+
+async function fetchScore({ file, url, inputMode, platform, setStatus }) {
   if (!API_URL) {
     await new Promise(r => setTimeout(r, 1200))
     return {
@@ -214,7 +283,7 @@ async function fetchScore({ file, url, inputMode, setStatus }) {
     const res = await fetch(`${API_URL}/score-url`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, type: 'video' }),
+      body: JSON.stringify({ url, type: 'video', platform }),
     })
     if (!res.ok) throw new Error('Backend error')
     return res.json()
@@ -233,6 +302,7 @@ async function fetchScore({ file, url, inputMode, setStatus }) {
   const form = new FormData()
   form.append('file', storyboard)
   form.append('type', 'video')
+  form.append('platform', platform)
   if (audioBlob) {
     form.append('audio', new File([audioBlob], 'audio.wav', { type: 'audio/wav' }))
   }
@@ -287,10 +357,17 @@ export default function AdViralityScore() {
   const [file, setFile] = useState(null)
   const [url, setUrl] = useState('')
   const [inputMode, setInputMode] = useState('file')
+  const [platform, setPlatform] = useState('tiktok')
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
   const [scores, setScores] = useState(null)
   const [error, setError] = useState(null)
+  const [history, setHistory] = useState([])
+  const [historyOpen, setHistoryOpen] = useState(true)
+
+  useEffect(() => {
+    setHistory(loadHistory())
+  }, [])
 
   async function handleScore() {
     setError(null)
@@ -298,8 +375,12 @@ export default function AdViralityScore() {
     setLoading(true)
     setStatus('Starting...')
     try {
-      const result = await fetchScore({ file, url, inputMode, setStatus })
+      const result = await fetchScore({ file, url, inputMode, platform, setStatus })
       setScores(result)
+      const label =
+        inputMode === 'file' ? file?.name : url.trim() || 'Untitled URL'
+      const next = saveToHistory(label, result)
+      setHistory(next)
     } catch {
       setError('Scoring failed. Please try again.')
     } finally {
@@ -307,6 +388,27 @@ export default function AdViralityScore() {
       setStatus('')
     }
   }
+
+  function handleRestore(entry) {
+    setScores({
+      ...entry.scores,
+      feedback: entry.feedback ?? undefined,
+      transcript: entry.transcript ?? undefined,
+    })
+    setError(null)
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  function handleClearHistory() {
+    setHistory(clearHistory())
+  }
+
+  const highestScore = history.reduce(
+    (max, h) => Math.max(max, h.scores?.overall ?? 0),
+    0,
+  )
 
   const canScore = inputMode === 'file' ? !!file : url.trim().length > 0
 
@@ -339,6 +441,42 @@ export default function AdViralityScore() {
                 {label}
               </button>
             ))}
+          </div>
+
+          {/* Platform selector */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Target Platform
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {PLATFORMS.map(({ key, label, icon }) => {
+                const selected = platform === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => { setPlatform(key); setScores(null) }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '8px 14px',
+                      borderRadius: 999,
+                      border: `2px solid ${selected ? '#764ba2' : '#e5e7eb'}`,
+                      background: selected ? '#764ba2' : '#fff',
+                      color: selected ? '#fff' : '#6b7280',
+                      fontWeight: 600,
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <span style={{ fontSize: 14 }}>{icon}</span>
+                    <span>{label}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Input area */}
@@ -462,6 +600,108 @@ export default function AdViralityScore() {
                   </div>
                 )}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* History */}
+        {history.length > 0 && (
+          <div style={{ background: '#fff', borderRadius: 20, padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', marginTop: 20 }}>
+            <button
+              onClick={() => setHistoryOpen(o => !o)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>📜</span>
+                <h2 style={{ fontWeight: 700, fontSize: 18, color: '#1a1a2e', margin: 0 }}>Recent Scores</h2>
+                <span style={{ fontSize: 12, color: '#6b7280', background: '#eef2ff', padding: '2px 8px', borderRadius: 999, fontWeight: 600 }}>
+                  {history.length}
+                </span>
+              </div>
+              <span style={{ fontSize: 14, color: '#6366f1', fontWeight: 600 }}>
+                {historyOpen ? '▾ Hide' : '▸ Show'}
+              </span>
+            </button>
+
+            {historyOpen && (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
+                  {history.map((entry) => {
+                    const overall = entry.scores?.overall ?? 0
+                    const color = scoreColor(overall)
+                    const isTop = overall === highestScore && highestScore > 0
+                    return (
+                      <button
+                        key={entry.id}
+                        onClick={() => handleRestore(entry)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          padding: '12px 14px',
+                          borderRadius: 12,
+                          border: `1px solid ${isTop ? '#c7d2fe' : '#f3f4f6'}`,
+                          background: isTop ? 'linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%)' : '#fafafa',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'all 0.15s',
+                          fontFamily: 'inherit',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#a5b4fc' }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = isTop ? '#c7d2fe' : '#f3f4f6' }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {isTop && <span style={{ fontSize: 12 }}>🏆</span>}
+                            <span style={{ fontSize: 14, fontWeight: 600, color: '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {entry.filename}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: 12, color: '#9ca3af' }}>
+                            {formatHistoryDate(entry.timestamp)}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            flexShrink: 0,
+                            minWidth: 52,
+                            padding: '6px 12px',
+                            borderRadius: 999,
+                            background: color,
+                            color: '#fff',
+                            fontSize: 14,
+                            fontWeight: 700,
+                            textAlign: 'center',
+                            boxShadow: isTop ? `0 4px 12px ${color}55` : 'none',
+                          }}
+                        >
+                          {overall}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <button
+                  onClick={handleClearHistory}
+                  style={{
+                    marginTop: 16,
+                    width: '100%',
+                    padding: '10px 0',
+                    borderRadius: 10,
+                    border: '1px solid #fecaca',
+                    background: '#fff',
+                    color: '#dc2626',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  🗑 Clear history
+                </button>
+              </>
             )}
           </div>
         )}
