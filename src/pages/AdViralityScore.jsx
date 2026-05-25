@@ -314,39 +314,103 @@ async function fetchScore({ file, url, inputMode, platform, setStatus }) {
 
 // ─── UI components ────────────────────────────────────────────────────────────
 
-function ScoreRing({ score, label }) {
-  const radius = 36
+const SCORE_ICONS = {
+  overall: '⚡',
+  emotion: '❤️',
+  hook: '🎯',
+  retention: '👁️',
+  shareability: '🔁',
+  trend: '📈',
+}
+
+function HeroScore({ score }) {
+  const radius = 56
+  const stroke = 10
   const circumference = 2 * Math.PI * radius
   const filled = (score / 100) * circumference
   const color = scoreColor(score)
+  const label = score >= 80 ? 'High Viral Potential' : score >= 60 ? 'Moderate Potential' : 'Needs Work'
+  const emoji = score >= 80 ? '🔥' : score >= 60 ? '📈' : '⚠️'
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-      <svg width="90" height="90" viewBox="0 0 90 90">
-        <circle cx="45" cy="45" r={radius} fill="none" stroke="#e5e7eb" strokeWidth="8" />
-        <circle
-          cx="45" cy="45" r={radius} fill="none" stroke={color} strokeWidth="8"
-          strokeDasharray={`${filled} ${circumference - filled}`}
-          strokeLinecap="round" transform="rotate(-90 45 45)"
-          style={{ transition: 'stroke-dasharray 1s ease' }}
-        />
-        <text x="45" y="49" textAnchor="middle" fontSize="18" fontWeight="700" fill={color}>{score}</text>
-      </svg>
-      <span style={{ fontSize: 12, color: '#6b7280', textAlign: 'center', maxWidth: 90 }}>{label}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '8px 0 24px' }}>
+      <div style={{ position: 'relative', width: 140, height: 140 }}>
+        <svg width="140" height="140" viewBox="0 0 140 140" style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx="70" cy="70" r={radius} fill="none" stroke="#f0f0f5" strokeWidth={stroke} />
+          <circle
+            cx="70" cy="70" r={radius} fill="none" stroke={color} strokeWidth={stroke}
+            strokeDasharray={`${filled} ${circumference - filled}`}
+            strokeLinecap="round"
+            style={{ transition: 'stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1)', filter: `drop-shadow(0 0 8px ${color}88)` }}
+          />
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 38, fontWeight: 900, color, lineHeight: 1 }}>{score}</span>
+          <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600 }}>/100</span>
+        </div>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#1f2937' }}>{emoji} {label}</div>
+        <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4 }}>
+          {score >= 80 ? 'Strong signals — consider paid boost' : score >= 60 ? 'Strengthen hook & emotion for lift' : 'Revisit concept, hook & targeting'}
+        </div>
+      </div>
     </div>
   )
 }
 
-function BarScore({ label, score }) {
+function MiniRing({ score, label }) {
+  const radius = 24
+  const circumference = 2 * Math.PI * radius
+  const filled = (score / 100) * circumference
   const color = scoreColor(score)
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 14 }}>
-        <span style={{ color: '#374151' }}>{label}</span>
-        <span style={{ fontWeight: 700, color }}>{score}/100</span>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      <div style={{ position: 'relative', width: 62, height: 62 }}>
+        <svg width="62" height="62" viewBox="0 0 62 62" style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx="31" cy="31" r={radius} fill="none" stroke="#f0f0f5" strokeWidth="7" />
+          <circle
+            cx="31" cy="31" r={radius} fill="none" stroke={color} strokeWidth="7"
+            strokeDasharray={`${filled} ${circumference - filled}`}
+            strokeLinecap="round"
+            style={{ transition: 'stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1)' }}
+          />
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 15, fontWeight: 800, color }}>{score}</span>
+        </div>
       </div>
-      <div style={{ background: '#e5e7eb', borderRadius: 999, height: 8, overflow: 'hidden' }}>
-        <div style={{ width: `${score}%`, background: color, height: '100%', borderRadius: 999, transition: 'width 1s ease' }} />
+      <span style={{ fontSize: 11, color: '#6b7280', textAlign: 'center', maxWidth: 70, lineHeight: 1.3 }}>{label}</span>
+    </div>
+  )
+}
+
+function BarScore({ label, score, icon }) {
+  const color = scoreColor(score)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
+      <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{label}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color }}>{score}</span>
+        </div>
+        <div style={{ background: '#f0f0f5', borderRadius: 999, height: 7, overflow: 'hidden' }}>
+          <div style={{ width: `${score}%`, background: `linear-gradient(90deg, ${color}bb, ${color})`, height: '100%', borderRadius: 999, transition: 'width 1.2s cubic-bezier(.4,0,.2,1)' }} />
+        </div>
       </div>
+    </div>
+  )
+}
+
+function LoadingDots({ status }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '12px 0' }}>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea, #764ba2)', animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+        ))}
+      </div>
+      <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>{status || 'Analyzing…'}</span>
     </div>
   )
 }
@@ -364,6 +428,8 @@ export default function AdViralityScore() {
   const [error, setError] = useState(null)
   const [history, setHistory] = useState([])
   const [historyOpen, setHistoryOpen] = useState(true)
+  const [dragging, setDragging] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     setHistory(loadHistory())
@@ -373,14 +439,12 @@ export default function AdViralityScore() {
     setError(null)
     setScores(null)
     setLoading(true)
-    setStatus('Starting...')
+    setStatus('Starting…')
     try {
       const result = await fetchScore({ file, url, inputMode, platform, setStatus })
       setScores(result)
-      const label =
-        inputMode === 'file' ? file?.name : url.trim() || 'Untitled URL'
-      const next = saveToHistory(label, result)
-      setHistory(next)
+      const label = inputMode === 'file' ? file?.name : url.trim() || 'Untitled URL'
+      setHistory(saveToHistory(label, result))
     } catch {
       setError('Scoring failed. Please try again.')
     } finally {
@@ -390,88 +454,114 @@ export default function AdViralityScore() {
   }
 
   function handleRestore(entry) {
-    setScores({
-      ...entry.scores,
-      feedback: entry.feedback ?? undefined,
-      transcript: entry.transcript ?? undefined,
-    })
+    setScores({ ...entry.scores, feedback: entry.feedback ?? undefined, transcript: entry.transcript ?? undefined })
     setError(null)
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  function handleClearHistory() {
-    setHistory(clearHistory())
+  function handleDrop(e) {
+    e.preventDefault()
+    setDragging(false)
+    const f = e.dataTransfer.files?.[0]
+    if (f) { setFile(f); setScores(null) }
   }
 
-  const highestScore = history.reduce(
-    (max, h) => Math.max(max, h.scores?.overall ?? 0),
-    0,
-  )
+  function handleCopyScore() {
+    if (!scores) return
+    const text = `Virality Score: ${scores.overall}/100\nEmotion: ${scores.emotion} · Hook: ${scores.hook} · Retention: ${scores.retention}\nShareability: ${scores.shareability} · Trend: ${scores.trend}`
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
+  const highestScore = history.reduce((max, h) => Math.max(max, h.scores?.overall ?? 0), 0)
   const canScore = inputMode === 'file' ? !!file : url.trim().length > 0
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '32px 16px' }}>
-      <div style={{ maxWidth: 680, margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #5b49e8 0%, #764ba2 60%, #9333ea 100%)', padding: '40px 16px 48px' }}>
+      <div style={{ maxWidth: 620, margin: '0 auto' }}>
 
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 40, marginBottom: 8 }}>⚡</div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', marginBottom: 6 }}>Virality Score</h1>
-          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15 }}>
-            Predict how viral your video will go — visual + audio AI analysis
+        {/* ── Header ── */}
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 56, height: 56, borderRadius: 16, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', marginBottom: 14, fontSize: 26 }}>⚡</div>
+          <h1 style={{ fontSize: 30, fontWeight: 900, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.5px' }}>Virality Score</h1>
+          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 15, margin: 0, lineHeight: 1.5 }}>
+            Upload your video — get an AI score before you post
           </p>
-          {!API_URL && (
-            <span style={{ display: 'inline-block', marginTop: 10, background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 12, padding: '3px 12px', borderRadius: 999 }}>
-              Mock mode — connect backend via VITE_VIRALITY_API_URL
-            </span>
-          )}
         </div>
 
-        {/* Card */}
-        <div style={{ background: '#fff', borderRadius: 20, padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+        {/* ── History (shown above input when history exists and no active result) ── */}
+        {history.length > 0 && !scores && (
+          <div style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)', borderRadius: 20, padding: '16px 20px', marginBottom: 16, border: '1px solid rgba(255,255,255,0.15)' }}>
+            <button
+              onClick={() => setHistoryOpen(o => !o)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 15 }}>📜</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>Recent Scores</span>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.15)', padding: '2px 7px', borderRadius: 999, fontWeight: 600 }}>{history.length}</span>
+              </div>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{historyOpen ? '▾' : '▸'}</span>
+            </button>
+            {historyOpen && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+                {history.map((entry) => {
+                  const overall = entry.scores?.overall ?? 0
+                  const color = scoreColor(overall)
+                  const isTop = overall === highestScore && highestScore > 0
+                  return (
+                    <button key={entry.id} onClick={() => handleRestore(entry)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 12, border: `1px solid ${isTop ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)'}`, background: isTop ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'background 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = isTop ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)' }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          {isTop && <span style={{ fontSize: 11 }}>🏆</span>}
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.filename}</span>
+                        </div>
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>{formatHistoryDate(entry.timestamp)}</span>
+                      </div>
+                      <div style={{ flexShrink: 0, padding: '4px 10px', borderRadius: 999, background: color, color: '#fff', fontSize: 13, fontWeight: 700, boxShadow: isTop ? `0 2px 8px ${color}66` : 'none' }}>{overall}</div>
+                    </button>
+                  )
+                })}
+                <button onClick={() => setHistory(clearHistory())}
+                  style={{ marginTop: 4, width: '100%', padding: '8px 0', borderRadius: 10, border: '1px solid rgba(255,100,100,0.35)', background: 'transparent', color: 'rgba(255,160,160,0.9)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  🗑 Clear history
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
-          {/* Input mode tabs */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            {[{ key: 'file', label: 'Upload File' }, { key: 'url', label: 'Paste URL' }].map(({ key, label }) => (
+        {/* ── Input Card ── */}
+        <div style={{ background: '#fff', borderRadius: 24, padding: '28px 24px', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}>
+
+          {/* Mode tabs */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 20, background: '#f3f4f6', borderRadius: 12, padding: 4 }}>
+            {[{ key: 'file', label: '📁 Upload File' }, { key: 'url', label: '🔗 Paste URL' }].map(({ key, label }) => (
               <button key={key} onClick={() => { setInputMode(key); setScores(null) }}
-                style={{ padding: '6px 16px', borderRadius: 8, border: `2px solid ${inputMode === key ? '#4f46e5' : '#e5e7eb'}`, background: inputMode === key ? '#eef2ff' : '#fff', color: inputMode === key ? '#4f46e5' : '#6b7280', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                style={{ flex: 1, padding: '8px 0', borderRadius: 9, border: 'none', background: inputMode === key ? '#fff' : 'transparent', color: inputMode === key ? '#4f46e5' : '#6b7280', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: inputMode === key ? '0 1px 4px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s', fontFamily: 'inherit' }}>
                 {label}
               </button>
             ))}
           </div>
 
-          {/* Platform selector */}
+          {/* Platform pills — horizontal single row */}
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.8 }}>
               Target Platform
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
               {PLATFORMS.map(({ key, label, icon }) => {
                 const selected = platform === key
                 return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => { setPlatform(key); setScores(null) }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '8px 14px',
-                      borderRadius: 999,
-                      border: `2px solid ${selected ? '#764ba2' : '#e5e7eb'}`,
-                      background: selected ? '#764ba2' : '#fff',
-                      color: selected ? '#fff' : '#6b7280',
-                      fontWeight: 600,
-                      fontSize: 13,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <span style={{ fontSize: 14 }}>{icon}</span>
+                  <button key={key} type="button" onClick={() => { setPlatform(key); setScores(null) }}
+                    style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 999, border: `1.5px solid ${selected ? '#6d28d9' : '#e5e7eb'}`, background: selected ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#fff', color: selected ? '#fff' : '#6b7280', fontWeight: 600, fontSize: 12, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 13 }}>{icon}</span>
                     <span>{label}</span>
                   </button>
                 )
@@ -481,236 +571,194 @@ export default function AdViralityScore() {
 
           {/* Input area */}
           {inputMode === 'file' ? (
-            <label style={{ display: 'block', border: '2px dashed #c7d2fe', borderRadius: 14, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#fafafa', marginBottom: 20 }}>
+            <label
+              style={{ display: 'block', border: `2px dashed ${dragging ? '#6d28d9' : file ? '#a5b4fc' : '#d1d5db'}`, borderRadius: 16, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: dragging ? '#f5f3ff' : file ? '#faf5ff' : '#fafafa', marginBottom: 20, transition: 'all 0.15s' }}
+              onDragOver={e => { e.preventDefault(); setDragging(true) }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={handleDrop}
+            >
               <input type="file" accept="image/*,video/*" style={{ display: 'none' }}
                 onChange={e => { setFile(e.target.files[0]); setScores(null) }} />
               {file ? (
                 <div>
-                  <div style={{ fontSize: 28, marginBottom: 6 }}>✅</div>
-                  <div style={{ fontWeight: 600, color: '#4f46e5' }}>{file.name}</div>
+                  <div style={{ fontSize: 30, marginBottom: 6 }}>🎬</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#4f46e5' }}>{file.name}</div>
                   <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                    {file.type.startsWith('video/') ? ' → 6-frame storyboard + audio' : file.size > 1024 * 1024 ? ' → will compress' : ''}
-                    {' · Click to change'}
+                    {(file.size / 1024 / 1024).toFixed(1)} MB
+                    {file.type.startsWith('video/') ? ' · 6-frame storyboard + audio' : file.size > 1024 * 1024 ? ' · will compress' : ''}
+                    {' · tap to change'}
                   </div>
                 </div>
               ) : (
                 <div>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
-                  <div style={{ fontWeight: 600, color: '#374151' }}>Drop file here or click to browse</div>
-                  <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-                    Images (JPG, PNG) or Videos (MP4, MOV, AVI) · Any size
-                  </div>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>{dragging ? '⬇️' : '☁️'}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#374151' }}>{dragging ? 'Drop it!' : 'Drop file or click to browse'}</div>
+                  <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>MP4 · MOV · JPG · PNG · Any size</div>
                 </div>
               )}
             </label>
           ) : (
-            <input type="url" placeholder="https://example.com/my-video.mp4" value={url}
+            <input type="url" placeholder="https://example.com/video.mp4" value={url}
               onChange={e => { setUrl(e.target.value); setScores(null) }}
-              style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '2px solid #e5e7eb', fontSize: 14, marginBottom: 20, outline: 'none', fontFamily: 'inherit' }} />
+              style={{ width: '100%', padding: '13px 15px', borderRadius: 12, border: '1.5px solid #e5e7eb', fontSize: 14, marginBottom: 20, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
+              onFocus={e => { e.target.style.borderColor = '#6d28d9' }}
+              onBlur={e => { e.target.style.borderColor = '#e5e7eb' }}
+            />
           )}
 
-          {/* Score button */}
+          {/* CTA button */}
           <button onClick={handleScore} disabled={!canScore || loading}
-            style={{ width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', background: canScore && !loading ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#e5e7eb', color: canScore && !loading ? '#fff' : '#9ca3af', fontWeight: 700, fontSize: 16, cursor: canScore && !loading ? 'pointer' : 'not-allowed', transition: 'all 0.2s' }}>
-            {loading ? status || '⚡ Analyzing...' : '🚀 Get Virality Score'}
+            style={{ width: '100%', padding: '15px 0', borderRadius: 14, border: 'none', background: canScore && !loading ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f3f4f6', color: canScore && !loading ? '#fff' : '#9ca3af', fontWeight: 800, fontSize: 16, cursor: canScore && !loading ? 'pointer' : 'not-allowed', transition: 'all 0.2s', letterSpacing: 0.2, fontFamily: 'inherit', boxShadow: canScore && !loading ? '0 4px 20px rgba(102,126,234,0.45)' : 'none' }}>
+            {loading ? <LoadingDots status={status} /> : '⚡ Analyze Virality'}
           </button>
 
           {error && (
-            <div style={{ marginTop: 16, padding: '12px 16px', background: '#fef2f2', borderRadius: 10, color: '#dc2626', fontSize: 14 }}>
-              {error}
+            <div style={{ marginTop: 14, padding: '11px 15px', background: '#fef2f2', borderRadius: 10, color: '#dc2626', fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span>⚠️</span><span>{error}</span>
             </div>
           )}
         </div>
 
-        {/* Results */}
+        {/* ── Results ── */}
         {scores && (
-          <div style={{ background: '#fff', borderRadius: 20, padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', marginTop: 20, animation: 'fadeIn 0.4s ease' }}>
-            <h2 style={{ fontWeight: 700, fontSize: 18, marginBottom: 20, color: '#1a1a2e' }}>Score Results</h2>
+          <div style={{ background: '#fff', borderRadius: 24, padding: '28px 24px', boxShadow: '0 24px 64px rgba(0,0,0,0.18)', marginTop: 16, animation: 'slideUp 0.4s cubic-bezier(.4,0,.2,1)' }}>
 
-            {/* Rings */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'center', marginBottom: 28 }}>
-              {Object.entries(scores)
-                .filter(([, val]) => typeof val === 'number')
-                .map(([key, val]) => <ScoreRing key={key} score={val} label={SCORE_LABELS[key] ?? key} />)}
-            </div>
+            {/* Hero score */}
+            <HeroScore score={scores.overall} />
 
-            {/* Bars */}
-            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 20 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#6b7280', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>Breakdown</h3>
+            {/* Sub-score rings */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, justifyItems: 'center', borderTop: '1px solid #f3f4f6', paddingTop: 20, marginBottom: 20 }}>
               {Object.entries(scores)
                 .filter(([k, val]) => k !== 'overall' && typeof val === 'number')
-                .map(([key, val]) => <BarScore key={key} label={SCORE_LABELS[key] ?? key} score={val} />)}
+                .map(([key, val]) => <MiniRing key={key} score={val} label={SCORE_LABELS[key] ?? key} />)}
             </div>
 
-            {/* Verdict */}
-            <div style={{ marginTop: 20, padding: '16px 20px', borderRadius: 14, background: scores.overall >= 80 ? '#f0fdf4' : scores.overall >= 60 ? '#fffbeb' : '#fef2f2', borderLeft: `4px solid ${scoreColor(scores.overall)}` }}>
-              <div style={{ fontWeight: 700, color: scoreColor(scores.overall), marginBottom: 4 }}>
-                {scores.overall >= 80 ? '🔥 High Viral Potential' : scores.overall >= 60 ? '📈 Moderate Potential' : '⚠️ Needs Improvement'}
-              </div>
-              <div style={{ fontSize: 13, color: '#4b5563' }}>
-                {scores.overall >= 80 ? 'This content has strong viral signals. Consider boosting with paid promotion.'
-                  : scores.overall >= 60 ? 'Decent virality. Strengthen your hook and emotional appeal for better results.'
-                  : 'Low viral likelihood. Revisit the concept, hook, and audience targeting.'}
-              </div>
+            {/* Bar breakdown */}
+            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 18, marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>Breakdown</div>
+              {Object.entries(scores)
+                .filter(([k, val]) => k !== 'overall' && typeof val === 'number')
+                .map(([key, val]) => <BarScore key={key} label={SCORE_LABELS[key] ?? key} score={val} icon={SCORE_ICONS[key] ?? '•'} />)}
             </div>
 
-            {/* Transcript pill (if available) */}
+            {/* Transcript */}
             {scores.transcript && (
-              <div style={{ marginTop: 16, padding: '10px 14px', background: '#f8faff', borderRadius: 10, border: '1px solid #e0e7ff' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: 1 }}>🎙 Transcript detected</span>
-                <p style={{ fontSize: 13, color: '#374151', marginTop: 4, marginBottom: 0, lineHeight: 1.5 }}>
-                  {scores.transcript.length > 200 ? scores.transcript.slice(0, 200) + '…' : scores.transcript}
+              <div style={{ marginTop: 16, padding: '12px 15px', background: '#f8f8ff', borderRadius: 12, border: '1px solid #e0e7ff' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>🎙 Transcript detected</div>
+                <p style={{ fontSize: 13, color: '#374151', margin: 0, lineHeight: 1.55 }}>
+                  {scores.transcript.length > 220 ? scores.transcript.slice(0, 220) + '…' : scores.transcript}
                 </p>
               </div>
             )}
 
             {/* AI Feedback */}
             {scores.feedback && (
-              <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {scores.feedback.summary && (
-                  <div style={{ background: '#fff', borderRadius: 20, padding: '18px 20px', boxShadow: '0 4px 14px rgba(0,0,0,0.06)', border: '1px solid #eef2ff' }}>
-                    <h3 style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>AI Summary</h3>
-                    <p style={{ fontSize: 14, color: '#1f2937', lineHeight: 1.55, margin: 0 }}>{scores.feedback.summary}</p>
+                  <div style={{ padding: '15px 18px', borderRadius: 14, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0.8 }}>AI Summary</div>
+                    <p style={{ fontSize: 14, color: '#1f2937', lineHeight: 1.6, margin: 0 }}>{scores.feedback.summary}</p>
                   </div>
                 )}
-                {scores.feedback.strengths?.length > 0 && (
-                  <div style={{ background: '#f0fdf4', borderRadius: 20, padding: '18px 20px', boxShadow: '0 4px 14px rgba(0,0,0,0.06)', borderLeft: '4px solid #22c55e' }}>
-                    <h3 style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Strengths</h3>
-                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {scores.feedback.strengths.map((item, i) => (
-                        <li key={i} style={{ fontSize: 14, color: '#14532d', lineHeight: 1.5, display: 'flex', gap: 8 }}>
-                          <span>✅</span><span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {scores.feedback.improvements?.length > 0 && (
-                  <div style={{ background: '#fffbeb', borderRadius: 20, padding: '18px 20px', boxShadow: '0 4px 14px rgba(0,0,0,0.06)', borderLeft: '4px solid #f59e0b' }}>
-                    <h3 style={{ fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Improvements</h3>
-                    <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {scores.feedback.improvements.map((item, i) => (
-                        <li key={i} style={{ fontSize: 14, color: '#78350f', lineHeight: 1.5, display: 'flex', gap: 10 }}>
-                          <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 999, background: '#f59e0b', color: '#fff', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
+                <div style={{ display: 'grid', gridTemplateColumns: scores.feedback.strengths?.length && scores.feedback.improvements?.length ? '1fr 1fr' : '1fr', gap: 12 }}>
+                  {scores.feedback.strengths?.length > 0 && (
+                    <div style={{ padding: '15px 16px', borderRadius: 14, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.8 }}>✅ Strengths</div>
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {scores.feedback.strengths.map((item, i) => (
+                          <li key={i} style={{ fontSize: 13, color: '#14532d', lineHeight: 1.45 }}>· {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {scores.feedback.improvements?.length > 0 && (
+                    <div style={{ padding: '15px 16px', borderRadius: 14, background: '#fffbeb', border: '1px solid #fde68a' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#b45309', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.8 }}>💡 Improvements</div>
+                      <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {scores.feedback.improvements.map((item, i) => (
+                          <li key={i} style={{ fontSize: 13, color: '#78350f', lineHeight: 1.45, display: 'flex', gap: 7 }}>
+                            <span style={{ flexShrink: 0, fontWeight: 700, color: '#f59e0b' }}>{i + 1}.</span><span>{item}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+              <button onClick={handleCopyScore}
+                style={{ flex: 1, padding: '11px 0', borderRadius: 12, border: '1.5px solid #e5e7eb', background: '#fff', color: copied ? '#22c55e' : '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
+                {copied ? '✅ Copied!' : '📋 Copy Score'}
+              </button>
+              <button onClick={() => { setScores(null); setFile(null); setUrl('') }}
+                style={{ flex: 1, padding: '11px 0', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ⚡ Score Another
+              </button>
+            </div>
           </div>
         )}
 
-        {/* History */}
-        {history.length > 0 && (
-          <div style={{ background: '#fff', borderRadius: 20, padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', marginTop: 20 }}>
-            <button
-              onClick={() => setHistoryOpen(o => !o)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 18 }}>📜</span>
-                <h2 style={{ fontWeight: 700, fontSize: 18, color: '#1a1a2e', margin: 0 }}>Recent Scores</h2>
-                <span style={{ fontSize: 12, color: '#6b7280', background: '#eef2ff', padding: '2px 8px', borderRadius: 999, fontWeight: 600 }}>
-                  {history.length}
-                </span>
+        {/* ── History (shown below results when a result is visible) ── */}
+        {history.length > 0 && scores && (
+          <div style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)', borderRadius: 20, padding: '14px 18px', marginTop: 16, border: '1px solid rgba(255,255,255,0.15)' }}>
+            <button onClick={() => setHistoryOpen(o => !o)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13 }}>📜</span>
+                <span style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>History</span>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.15)', padding: '2px 7px', borderRadius: 999, fontWeight: 600 }}>{history.length}</span>
               </div>
-              <span style={{ fontSize: 14, color: '#6366f1', fontWeight: 600 }}>
-                {historyOpen ? '▾ Hide' : '▸ Show'}
-              </span>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{historyOpen ? '▾' : '▸'}</span>
             </button>
-
             {historyOpen && (
-              <>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
-                  {history.map((entry) => {
-                    const overall = entry.scores?.overall ?? 0
-                    const color = scoreColor(overall)
-                    const isTop = overall === highestScore && highestScore > 0
-                    return (
-                      <button
-                        key={entry.id}
-                        onClick={() => handleRestore(entry)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 12,
-                          padding: '12px 14px',
-                          borderRadius: 12,
-                          border: `1px solid ${isTop ? '#c7d2fe' : '#f3f4f6'}`,
-                          background: isTop ? 'linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%)' : '#fafafa',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          transition: 'all 0.15s',
-                          fontFamily: 'inherit',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#a5b4fc' }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = isTop ? '#c7d2fe' : '#f3f4f6' }}
-                      >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            {isTop && <span style={{ fontSize: 12 }}>🏆</span>}
-                            <span style={{ fontSize: 14, fontWeight: 600, color: '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {entry.filename}
-                            </span>
-                          </div>
-                          <span style={{ fontSize: 12, color: '#9ca3af' }}>
-                            {formatHistoryDate(entry.timestamp)}
-                          </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 10 }}>
+                {history.map((entry) => {
+                  const overall = entry.scores?.overall ?? 0
+                  const color = scoreColor(overall)
+                  const isTop = overall === highestScore && highestScore > 0
+                  return (
+                    <button key={entry.id} onClick={() => handleRestore(entry)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 11px', borderRadius: 11, border: `1px solid ${isTop ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.12)'}`, background: 'rgba(255,255,255,0.08)', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.16)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          {isTop && <span style={{ fontSize: 10 }}>🏆</span>}
+                          <span style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.filename}</span>
                         </div>
-                        <div
-                          style={{
-                            flexShrink: 0,
-                            minWidth: 52,
-                            padding: '6px 12px',
-                            borderRadius: 999,
-                            background: color,
-                            color: '#fff',
-                            fontSize: 14,
-                            fontWeight: 700,
-                            textAlign: 'center',
-                            boxShadow: isTop ? `0 4px 12px ${color}55` : 'none',
-                          }}
-                        >
-                          {overall}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <button
-                  onClick={handleClearHistory}
-                  style={{
-                    marginTop: 16,
-                    width: '100%',
-                    padding: '10px 0',
-                    borderRadius: 10,
-                    border: '1px solid #fecaca',
-                    background: '#fff',
-                    color: '#dc2626',
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{formatHistoryDate(entry.timestamp)}</span>
+                      </div>
+                      <div style={{ flexShrink: 0, padding: '3px 9px', borderRadius: 999, background: color, color: '#fff', fontSize: 12, fontWeight: 700 }}>{overall}</div>
+                    </button>
+                  )
+                })}
+                <button onClick={() => setHistory(clearHistory())}
+                  style={{ marginTop: 4, width: '100%', padding: '7px 0', borderRadius: 9, border: '1px solid rgba(255,100,100,0.3)', background: 'transparent', color: 'rgba(255,160,160,0.85)', fontWeight: 600, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
                   🗑 Clear history
                 </button>
-              </>
+              </div>
             )}
           </div>
         )}
 
-        <p style={{ textAlign: 'center', marginTop: 20, color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
-          Visual + Audio AI Analysis · {API_URL ? 'Live backend' : 'Mock mode'}
+        <p style={{ textAlign: 'center', marginTop: 24, color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
+          Visual + Audio AI · {API_URL ? 'Live' : 'Mock mode'} · 10 req/hr limit
         </p>
       </div>
-      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }`}</style>
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: none; }
+        }
+        @keyframes bounce {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+          40%            { transform: translateY(-8px); opacity: 1; }
+        }
+      `}</style>
     </div>
   )
 }
