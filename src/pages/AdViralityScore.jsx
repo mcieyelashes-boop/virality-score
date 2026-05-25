@@ -2,6 +2,18 @@ import { useEffect, useState } from 'react'
 
 const API_URL = import.meta.env.VITE_VIRALITY_API_URL
 
+// ─── responsive hook ─────────────────────────────────────────────────────────
+
+function useWindowWidth() {
+  const [w, setW] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 800))
+  useEffect(() => {
+    const handler = () => setW(window.innerWidth)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return w
+}
+
 // ─── history helpers (localStorage) ──────────────────────────────────────────
 
 const HISTORY_KEY = 'virality_history'
@@ -248,14 +260,7 @@ function scoreColor(score) {
   return '#ef4444'
 }
 
-const PLATFORMS = [
-  { key: 'tiktok',   label: 'TikTok',           icon: '🎵' },
-  { key: 'reels',    label: 'Instagram Reels',  icon: '📸' },
-  { key: 'shorts',   label: 'YouTube Shorts',   icon: '▶️' },
-  { key: 'linkedin', label: 'LinkedIn',         icon: '💼' },
-]
-
-async function fetchScore({ file, url, inputMode, platform, setStatus }) {
+async function fetchScore({ file, url, inputMode, setStatus }) {
   if (!API_URL) {
     await new Promise(r => setTimeout(r, 1200))
     return {
@@ -283,7 +288,7 @@ async function fetchScore({ file, url, inputMode, platform, setStatus }) {
     const res = await fetch(`${API_URL}/score-url`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, type: 'video', platform }),
+      body: JSON.stringify({ url, type: 'video', platform: 'tiktok' }),
     })
     if (!res.ok) throw new Error('Backend error')
     return res.json()
@@ -302,7 +307,7 @@ async function fetchScore({ file, url, inputMode, platform, setStatus }) {
   const form = new FormData()
   form.append('file', storyboard)
   form.append('type', 'video')
-  form.append('platform', platform)
+  form.append('platform', 'tiktok')
   if (audioBlob) {
     form.append('audio', new File([audioBlob], 'audio.wav', { type: 'audio/wav' }))
   }
@@ -404,14 +409,14 @@ function BarScore({ label, score, icon }) {
 
 function LoadingDots({ status }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '12px 0' }}>
-      <div style={{ display: 'flex', gap: 8 }}>
+    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: 0 }}>
+      <span style={{ display: 'inline-flex', gap: 8 }}>
         {[0, 1, 2].map(i => (
-          <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea, #764ba2)', animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+          <span key={i} style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea, #764ba2)', animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
         ))}
-      </div>
+      </span>
       <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>{status || 'Analyzing…'}</span>
-    </div>
+    </span>
   )
 }
 
@@ -421,7 +426,6 @@ export default function AdViralityScore() {
   const [file, setFile] = useState(null)
   const [url, setUrl] = useState('')
   const [inputMode, setInputMode] = useState('file')
-  const [platform, setPlatform] = useState('tiktok')
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
   const [scores, setScores] = useState(null)
@@ -430,6 +434,9 @@ export default function AdViralityScore() {
   const [historyOpen, setHistoryOpen] = useState(true)
   const [dragging, setDragging] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [ctaHover, setCtaHover] = useState(false)
+
+  const isMobile = useWindowWidth() < 600
 
   useEffect(() => {
     setHistory(loadHistory())
@@ -441,7 +448,7 @@ export default function AdViralityScore() {
     setLoading(true)
     setStatus('Starting…')
     try {
-      const result = await fetchScore({ file, url, inputMode, platform, setStatus })
+      const result = await fetchScore({ file, url, inputMode, setStatus })
       setScores(result)
       const label = inputMode === 'file' ? file?.name : url.trim() || 'Untitled URL'
       setHistory(saveToHistory(label, result))
@@ -479,13 +486,13 @@ export default function AdViralityScore() {
   const canScore = inputMode === 'file' ? !!file : url.trim().length > 0
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #5b49e8 0%, #764ba2 60%, #9333ea 100%)', padding: '40px 16px 48px' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #5b49e8 0%, #764ba2 60%, #9333ea 100%)', padding: isMobile ? '24px 12px 40px' : '40px 16px 48px' }}>
       <div style={{ maxWidth: 620, margin: '0 auto' }}>
 
         {/* ── Header ── */}
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 56, height: 56, borderRadius: 16, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', marginBottom: 14, fontSize: 26 }}>⚡</div>
-          <h1 style={{ fontSize: 30, fontWeight: 900, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.5px' }}>Virality Score</h1>
+          <h1 style={{ fontSize: isMobile ? 24 : 30, fontWeight: 900, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.5px' }}>Virality Score</h1>
           <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 15, margin: 0, lineHeight: 1.5 }}>
             Upload your video — get an AI score before you post
           </p>
@@ -500,8 +507,8 @@ export default function AdViralityScore() {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 15 }}>📜</span>
-                <span style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>Recent Scores</span>
-                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.15)', padding: '2px 7px', borderRadius: 999, fontWeight: 600 }}>{history.length}</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: '#fff', letterSpacing: 0.3 }}>Recent Scores</span>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.25)', padding: '2px 7px', borderRadius: 999, fontWeight: 600 }}>{history.length}</span>
               </div>
               <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{historyOpen ? '▾' : '▸'}</span>
             </button>
@@ -538,41 +545,22 @@ export default function AdViralityScore() {
         )}
 
         {/* ── Input Card ── */}
-        <div style={{ background: '#fff', borderRadius: 24, padding: '28px 24px', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}>
+        <div style={{ background: '#fff', borderRadius: 24, padding: isMobile ? '20px 16px' : '28px 24px', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}>
 
           {/* Mode tabs */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 20, background: '#f3f4f6', borderRadius: 12, padding: 4 }}>
             {[{ key: 'file', label: '📁 Upload File' }, { key: 'url', label: '🔗 Paste URL' }].map(({ key, label }) => (
               <button key={key} onClick={() => { setInputMode(key); setScores(null) }}
-                style={{ flex: 1, padding: '8px 0', borderRadius: 9, border: 'none', background: inputMode === key ? '#fff' : 'transparent', color: inputMode === key ? '#4f46e5' : '#6b7280', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: inputMode === key ? '0 1px 4px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s', fontFamily: 'inherit' }}>
+                style={{ flex: 1, padding: '8px 0', borderRadius: 9, border: 'none', background: inputMode === key ? '#fff' : 'transparent', color: inputMode === key ? '#4f46e5' : '#6b7280', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: inputMode === key ? '0 1px 4px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s', fontFamily: 'inherit' }}>
                 {label}
               </button>
             ))}
           </div>
 
-          {/* Platform pills — horizontal single row */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-              Target Platform
-            </div>
-            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
-              {PLATFORMS.map(({ key, label, icon }) => {
-                const selected = platform === key
-                return (
-                  <button key={key} type="button" onClick={() => { setPlatform(key); setScores(null) }}
-                    style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 999, border: `1.5px solid ${selected ? '#6d28d9' : '#e5e7eb'}`, background: selected ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#fff', color: selected ? '#fff' : '#6b7280', fontWeight: 600, fontSize: 12, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
-                    <span style={{ fontSize: 13 }}>{icon}</span>
-                    <span>{label}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
           {/* Input area */}
           {inputMode === 'file' ? (
             <label
-              style={{ display: 'block', border: `2px dashed ${dragging ? '#6d28d9' : file ? '#a5b4fc' : '#d1d5db'}`, borderRadius: 16, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: dragging ? '#f5f3ff' : file ? '#faf5ff' : '#fafafa', marginBottom: 20, transition: 'all 0.15s' }}
+              style={{ display: 'block', border: `2px dashed ${dragging ? '#6d28d9' : file ? '#a5b4fc' : '#d1d5db'}`, borderRadius: 16, padding: isMobile ? '20px 16px' : '28px 20px', textAlign: 'center', cursor: 'pointer', background: dragging ? '#f5f3ff' : file ? '#faf5ff' : '#fafafa', marginBottom: 20, transition: 'all 0.15s' }}
               onDragOver={e => { e.preventDefault(); setDragging(true) }}
               onDragLeave={() => setDragging(false)}
               onDrop={handleDrop}
@@ -581,17 +569,29 @@ export default function AdViralityScore() {
                 onChange={e => { setFile(e.target.files[0]); setScores(null) }} />
               {file ? (
                 <div>
-                  <div style={{ fontSize: 30, marginBottom: 6 }}>🎬</div>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 6 }}>
+                    <polyline points="16 16 12 12 8 16" />
+                    <line x1="12" y1="12" x2="12" y2="21" />
+                    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+                  </svg>
                   <div style={{ fontWeight: 700, fontSize: 14, color: '#4f46e5' }}>{file.name}</div>
-                  <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-                    {(file.size / 1024 / 1024).toFixed(1)} MB
-                    {file.type.startsWith('video/') ? ' · 6-frame storyboard + audio' : file.size > 1024 * 1024 ? ' · will compress' : ''}
-                    {' · tap to change'}
+                  <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <span style={{ background: '#eef2ff', color: '#4f46e5', padding: '2px 8px', borderRadius: 999, fontWeight: 600 }}>{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+                    <span>{file.type.startsWith('video/') ? 'storyboard + audio' : file.size > 1024 * 1024 ? 'will compress' : 'image'}</span>
+                    <span>· tap to change</span>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>{dragging ? '⬇️' : '☁️'}</div>
+                  {dragging ? (
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>⬇️</div>
+                  ) : (
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 8 }}>
+                      <polyline points="16 16 12 12 8 16" />
+                      <line x1="12" y1="12" x2="12" y2="21" />
+                      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+                    </svg>
+                  )}
                   <div style={{ fontWeight: 700, fontSize: 14, color: '#374151' }}>{dragging ? 'Drop it!' : 'Drop file or click to browse'}</div>
                   <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>MP4 · MOV · JPG · PNG · Any size</div>
                 </div>
@@ -608,12 +608,14 @@ export default function AdViralityScore() {
 
           {/* CTA button */}
           <button onClick={handleScore} disabled={!canScore || loading}
-            style={{ width: '100%', padding: '15px 0', borderRadius: 14, border: 'none', background: canScore && !loading ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f3f4f6', color: canScore && !loading ? '#fff' : '#9ca3af', fontWeight: 800, fontSize: 16, cursor: canScore && !loading ? 'pointer' : 'not-allowed', transition: 'all 0.2s', letterSpacing: 0.2, fontFamily: 'inherit', boxShadow: canScore && !loading ? '0 4px 20px rgba(102,126,234,0.45)' : 'none' }}>
+            onMouseEnter={() => { if (canScore && !loading) setCtaHover(true) }}
+            onMouseLeave={() => setCtaHover(false)}
+            style={{ width: '100%', padding: '15px 0', borderRadius: 14, border: 'none', background: canScore && !loading ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f3f4f6', color: canScore && !loading ? '#fff' : '#9ca3af', fontWeight: 800, fontSize: 16, cursor: canScore && !loading ? 'pointer' : 'not-allowed', transition: 'all 0.2s', letterSpacing: 0.2, fontFamily: 'inherit', boxShadow: canScore && !loading ? (ctaHover ? '0 6px 28px rgba(102,126,234,0.6)' : '0 4px 20px rgba(102,126,234,0.45)') : 'none', transform: canScore && !loading && ctaHover ? 'translateY(-1px)' : 'none' }}>
             {loading ? <LoadingDots status={status} /> : '⚡ Analyze Virality'}
           </button>
 
           {error && (
-            <div style={{ marginTop: 14, padding: '11px 15px', background: '#fef2f2', borderRadius: 10, color: '#dc2626', fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ marginTop: 14, padding: '11px 15px', background: '#fef2f2', borderRadius: 10, color: '#dc2626', fontSize: 13, display: 'flex', gap: 8, alignItems: 'center', borderLeft: '3px solid #ef4444' }}>
               <span>⚠️</span><span>{error}</span>
             </div>
           )}
@@ -621,13 +623,18 @@ export default function AdViralityScore() {
 
         {/* ── Results ── */}
         {scores && (
-          <div style={{ background: '#fff', borderRadius: 24, padding: '28px 24px', boxShadow: '0 24px 64px rgba(0,0,0,0.18)', marginTop: 16, animation: 'slideUp 0.4s cubic-bezier(.4,0,.2,1)' }}>
+          <div style={{ background: '#fff', borderRadius: 24, padding: isMobile ? '20px 16px' : '28px 24px', boxShadow: '0 24px 64px rgba(0,0,0,0.18)', marginTop: 16, animation: 'slideUp 0.4s cubic-bezier(.4,0,.2,1)' }}>
+
+            {/* Results heading */}
+            <div style={{ textAlign: 'center', marginBottom: 4 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>Your Virality Score</span>
+            </div>
 
             {/* Hero score */}
             <HeroScore score={scores.overall} />
 
             {/* Sub-score rings */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, justifyItems: 'center', borderTop: '1px solid #f3f4f6', paddingTop: 20, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)', gap: 8, justifyItems: 'center', borderTop: '1px solid #f3f4f6', paddingTop: 20, marginBottom: 20 }}>
               {Object.entries(scores)
                 .filter(([k, val]) => k !== 'overall' && typeof val === 'number')
                 .map(([key, val]) => <MiniRing key={key} score={val} label={SCORE_LABELS[key] ?? key} />)}
@@ -660,7 +667,7 @@ export default function AdViralityScore() {
                     <p style={{ fontSize: 14, color: '#1f2937', lineHeight: 1.6, margin: 0 }}>{scores.feedback.summary}</p>
                   </div>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: scores.feedback.strengths?.length && scores.feedback.improvements?.length ? '1fr 1fr' : '1fr', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (scores.feedback.strengths?.length && scores.feedback.improvements?.length ? '1fr 1fr' : '1fr'), gap: 12 }}>
                   {scores.feedback.strengths?.length > 0 && (
                     <div style={{ padding: '15px 16px', borderRadius: 14, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.8 }}>✅ Strengths</div>
@@ -688,7 +695,7 @@ export default function AdViralityScore() {
             )}
 
             {/* Actions */}
-            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 8, marginTop: 20 }}>
               <button onClick={handleCopyScore}
                 style={{ flex: 1, padding: '11px 0', borderRadius: 12, border: '1.5px solid #e5e7eb', background: '#fff', color: copied ? '#22c55e' : '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
                 {copied ? '✅ Copied!' : '📋 Copy Score'}
@@ -746,7 +753,7 @@ export default function AdViralityScore() {
         )}
 
         <p style={{ textAlign: 'center', marginTop: 24, color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
-          Visual + Audio AI · {API_URL ? 'Live' : 'Mock mode'} · 10 req/hr limit
+          Visual + Audio AI · {API_URL ? '🟢 Live' : '🟡 Mock'} · 10 req/hr
         </p>
       </div>
       <style>{`
