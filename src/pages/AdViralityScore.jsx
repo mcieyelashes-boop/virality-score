@@ -407,6 +407,40 @@ function BarScore({ label, score, icon }) {
   )
 }
 
+// ─── Sparkline: tiny inline SVG trend line for history ───────────────────────
+
+function Sparkline({ scores, width = 56, height = 22 }) {
+  const data = scores.map(s => s ?? 0)
+  if (data.length < 2) return null
+  const min = Math.min(...data)
+  const max = Math.max(...data)
+  const range = max - min || 10
+  const pad = 2
+  const pts = data.map((v, i) => {
+    const x = pad + (i / (data.length - 1)) * (width - pad * 2)
+    const y = pad + ((max - v) / range) * (height - pad * 2)
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+  const last = pts.split(' ').slice(-1)[0].split(',')
+  const color = scoreColor(data[data.length - 1])
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ flexShrink: 0, overflow: 'visible' }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.75" />
+      <circle cx={last[0]} cy={last[1]} r="2.5" fill={color} />
+    </svg>
+  )
+}
+
+// ─── Improvement tips per dimension ──────────────────────────────────────────
+
+const WEAK_TIPS = {
+  emotion:      'Start with music or a relatable moment — emotion in the first 3s multiplies shares.',
+  hook:         'Open with a bold visual or question. Viewers decide in 2s whether to keep watching.',
+  retention:    'Cut dead air. Jump cuts, captions, and pacing variation hold viewers to the end.',
+  shareability: 'Add a laugh, a surprise, or genuinely useful info — those are the share triggers.',
+  trend:        'Use trending audio and formats for your niche — discovery algorithm rewards it.',
+}
+
 function LoadingDots({ status }) {
   return (
     <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: 0 }}>
@@ -485,6 +519,9 @@ export default function AdViralityScore() {
   const highestScore = history.reduce((max, h) => Math.max(max, h.scores?.overall ?? 0), 0)
   const canScore = inputMode === 'file' ? !!file : url.trim().length > 0
 
+  // Sparkline data: overall scores oldest→newest (history is newest-first, so reverse)
+  const sparklineData = [...history].reverse().map(h => h.scores?.overall ?? 0)
+
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #5b49e8 0%, #764ba2 60%, #9333ea 100%)', padding: isMobile ? '24px 12px 40px' : '40px 16px 48px' }}>
       <div style={{ maxWidth: 620, margin: '0 auto' }}>
@@ -497,6 +534,23 @@ export default function AdViralityScore() {
             Upload your video — get an AI score before you post
           </p>
         </div>
+
+        {/* ── How it works (first-time, no history, no score) ── */}
+        {history.length === 0 && !scores && (
+          <div style={{ display: 'flex', gap: isMobile ? 10 : 14, justifyContent: 'center', marginBottom: 20 }}>
+            {[
+              { icon: '☁️', step: '1', title: 'Upload', desc: 'Drop any video or image' },
+              { icon: '🤖', step: '2', title: 'AI Analysis', desc: '6 frames + audio scored' },
+              { icon: '⚡', step: '3', title: 'Get Score', desc: 'Know before you post' },
+            ].map(({ icon, step, title, desc }) => (
+              <div key={step} style={{ flex: 1, background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', borderRadius: 16, padding: isMobile ? '12px 10px' : '16px 14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <div style={{ fontSize: isMobile ? 20 : 24, marginBottom: 6 }}>{icon}</div>
+                <div style={{ fontSize: isMobile ? 11 : 12, fontWeight: 800, color: '#fff', marginBottom: 2 }}>{title}</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.3 }}>{desc}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ── History (shown above input when history exists and no active result) ── */}
         {history.length > 0 && !scores && (
@@ -514,10 +568,19 @@ export default function AdViralityScore() {
             </button>
             {historyOpen && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
-                {history.map((entry) => {
+                {sparklineData.length >= 2 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.06)' }}>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>Trend</span>
+                    <Sparkline scores={sparklineData} width={Math.min(sparklineData.length * 18, 120)} height={22} />
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{sparklineData[0]}→{sparklineData[sparklineData.length - 1]}</span>
+                  </div>
+                )}
+                {history.map((entry, idx) => {
                   const overall = entry.scores?.overall ?? 0
                   const color = scoreColor(overall)
                   const isTop = overall === highestScore && highestScore > 0
+                  const prev = history[idx + 1]
+                  const delta = prev ? overall - (prev.scores?.overall ?? 0) : null
                   return (
                     <button key={entry.id} onClick={() => handleRestore(entry)}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 12, border: `1px solid ${isTop ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)'}`, background: isTop ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'background 0.15s' }}
@@ -531,7 +594,14 @@ export default function AdViralityScore() {
                         </div>
                         <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>{formatHistoryDate(entry.timestamp)}</span>
                       </div>
-                      <div style={{ flexShrink: 0, padding: '4px 10px', borderRadius: 999, background: color, color: '#fff', fontSize: 13, fontWeight: 700, boxShadow: isTop ? `0 2px 8px ${color}66` : 'none' }}>{overall}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        {delta !== null && (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : 'rgba(255,255,255,0.4)' }}>
+                            {delta > 0 ? `+${delta}` : delta}
+                          </span>
+                        )}
+                        <div style={{ padding: '4px 10px', borderRadius: 999, background: color, color: '#fff', fontSize: 13, fontWeight: 700, boxShadow: isTop ? `0 2px 8px ${color}66` : 'none' }}>{overall}</div>
+                      </div>
                     </button>
                   )
                 })}
@@ -600,6 +670,7 @@ export default function AdViralityScore() {
           ) : (
             <input type="url" placeholder="https://example.com/video.mp4" value={url}
               onChange={e => { setUrl(e.target.value); setScores(null) }}
+              onKeyDown={e => { if (e.key === 'Enter' && canScore && !loading) handleScore() }}
               style={{ width: '100%', padding: '13px 15px', borderRadius: 12, border: '1.5px solid #e5e7eb', fontSize: 14, marginBottom: 20, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
               onFocus={e => { e.target.style.borderColor = '#6d28d9' }}
               onBlur={e => { e.target.style.borderColor = '#e5e7eb' }}
@@ -647,6 +718,26 @@ export default function AdViralityScore() {
                 .filter(([k, val]) => k !== 'overall' && typeof val === 'number')
                 .map(([key, val]) => <BarScore key={key} label={SCORE_LABELS[key] ?? key} score={val} icon={SCORE_ICONS[key] ?? '•'} />)}
             </div>
+
+            {/* Weakest metric callout */}
+            {(() => {
+              const sub = Object.entries(scores).filter(([k, v]) => k !== 'overall' && typeof v === 'number')
+              if (!sub.length) return null
+              const [weakKey, weakVal] = sub.reduce((min, cur) => cur[1] < min[1] ? cur : min)
+              const tip = WEAK_TIPS[weakKey]
+              if (!tip || weakVal >= 75) return null
+              return (
+                <div style={{ marginTop: 4, marginBottom: 4, padding: '12px 15px', borderRadius: 12, background: 'linear-gradient(135deg, #fef9c3, #fef3c7)', border: '1px solid #fde68a', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>💡</span>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 3 }}>
+                      Lowest: {SCORE_LABELS[weakKey]} ({weakVal})
+                    </div>
+                    <div style={{ fontSize: 13, color: '#78350f', lineHeight: 1.5 }}>{tip}</div>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Transcript */}
             {scores.transcript && (
